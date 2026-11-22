@@ -339,8 +339,24 @@ class GeminiLLM:
         self.mode = "live"
 
     def complete(self, prompt: str) -> str:
-        response = self._client.models.generate_content(model=self.model, contents=prompt)
-        return response.text or ""
+        # Transient 429/503s are common on free tiers; retry with backoff.
+        import time
+
+        from google.genai import errors
+
+        last_exc: Exception | None = None
+        for attempt in range(6):
+            try:
+                response = self._client.models.generate_content(
+                    model=self.model, contents=prompt
+                )
+                return response.text or ""
+            except errors.APIError as exc:
+                if exc.code not in (429, 500, 502, 503, 504):
+                    raise
+                last_exc = exc
+                time.sleep(min(60, 5 * (2**attempt)))
+        raise RuntimeError(f"Gemini API unavailable after retries: {last_exc}")
 
     def decide(self, ctx: AgentContext) -> dict:
         prompt = self._render_prompt(ctx)
