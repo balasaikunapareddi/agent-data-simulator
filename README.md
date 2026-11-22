@@ -159,6 +159,25 @@ sentinel abstention, and scoring.
 | Qualitative | "What should a new analyst know about downtime here?" | Synthesizing owner, official definition, and correction trail |
 | Sentinel | "What was Plant 2's Basalt Velocity Ratio?" | Abstaining instead of hallucinating a number |
 
+## Project structure
+
+```
+src/agent_data_simulator/
+  blueprint.py   company facts, people, injected flaws (the answer key)
+  simulate.py    deterministic estate generation (seeded SQLite)
+  estate.py      estate build/load helpers
+  documents.py   memo/chat rendering (templates; LLM in live mode)
+  benchmark.py   questions with gold/decoy SQL, rubrics, sentinels
+  prompts.py     system prompt + action protocol + render template
+  agent.py       DataAgent: LangGraph plan/act/observe loop
+  tools.py       read-only estate tools (schema, docs, SQL)
+  llm.py         MockLLM (offline) + GeminiLLM (live)
+  evaluate.py    scoring against the benchmark
+  realism.py     messiness statistics report
+  cli.py         build / demo / evaluate commands
+tests/           pytest suite (offline)
+```
+
 ## Limitations
 
 - **The mock LLM is a rule-based stand-in.** It proves the pipeline, the

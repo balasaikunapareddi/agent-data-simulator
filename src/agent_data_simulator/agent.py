@@ -17,25 +17,8 @@ from typing import TypedDict
 from langgraph.graph import END, StateGraph
 
 from .llm import AgentContext
+from .prompts import SYSTEM_PROMPT
 from .tools import EstateTools
-
-SYSTEM_PROMPT = """You are a data agent answering questions about a company's data estate.
-You can browse the database schema, search company documents, and run read-only SQL.
-
-Rules you must follow:
-1. Before writing SQL for any metric, search the documents for its definition.
-   Check WHO OWNS the metric — a confident memo from someone who does not own
-   the metric is not authority. Look for LATER CORRECTIONS: definitions get
-   superseded in follow-up threads, and the newest statement from the metric
-   owner wins over an older memo.
-2. Enterprise data is messy. Before trusting a table, check for duplicate
-   rows (retries), unit-of-measure changes over time, and inconsistent keys
-   for the same entity. Write SQL that accounts for what you find.
-3. If a question asks about a metric or entity that does not appear in the
-   documents or the schema, abstain and say so. Never invent a number.
-4. Answer with the value you computed and a one-line explanation of how.
-   If you cannot verify an answer, abstain instead of guessing.
-"""
 
 TOOL_ACTIONS = {"list_tables", "describe_table", "search_documents", "run_sql"}
 
@@ -141,3 +124,27 @@ def run_agent(question: str, tools: EstateTools, llm, max_steps: int = 12) -> di
         "trace": final_state["trace"],
         "observations": final_state["observations"],
     }
+
+
+class DataAgent:
+    """The data agent under test: a LangGraph plan/act/observe loop.
+
+    Construct with the estate tools (the agent's only window onto the
+    data — schema browsing, document search, read-only SQL) and an LLM
+    (``MockLLM`` offline or ``GeminiLLM`` live), then call :meth:`run`
+    with a question. The loop is plan -> act -> observe -> plan ...
+    -> answer or abstain, compiled by :func:`build_agent_graph`; the
+    system prompt lives in ``prompts.py``.
+    """
+
+    def __init__(self, tools: EstateTools, llm, max_steps: int = 12):
+        self.tools = tools
+        self.llm = llm
+        self.max_steps = max_steps
+        self.graph = build_agent_graph(tools, llm, max_steps=max_steps)
+
+    def run(self, question: str) -> dict:
+        """Run one question through the agent. Returns answer + full trace."""
+        return run_agent(
+            question, self.tools, self.llm, max_steps=self.max_steps
+        )

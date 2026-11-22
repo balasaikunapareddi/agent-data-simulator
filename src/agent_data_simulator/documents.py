@@ -17,6 +17,7 @@ import re
 from pathlib import Path
 
 from .blueprint import Blueprint
+from .prompts import DOCUMENT_RENDER_TEMPLATE
 
 
 def _templates(bp: Blueprint) -> dict[str, str]:
@@ -180,14 +181,15 @@ def render_documents(bp: Blueprint, llm_client=None) -> list[dict]:
 def _render_with_llm(bp: Blueprint, doc_id: str, spec: dict, author, llm_client) -> str:
     facts = "\n".join(f"- {f}" for f in spec["facts"])
     phrases = ", ".join(repr(p) for p in spec["required_phrases"])
-    prompt = (
-        f"Write a short workplace {spec['kind']} for a fictional manufacturer, "
-        f"in the voice of {author.name} ({author.role}; style: {author.writing_style}).\n"
-        f"Title: {spec['title']}\nDate: {spec['date']}\n\n"
-        f"It must state exactly these facts and no others:\n{facts}\n\n"
-        f"It must contain these exact phrases: {phrases}.\n"
-        "Do not invent any numbers, dates, or names beyond what is given above. "
-        "Keep it under 200 words. Output only the document text."
+    prompt = DOCUMENT_RENDER_TEMPLATE.format(
+        kind=spec["kind"],
+        author_name=author.name,
+        author_role=author.role,
+        author_style=author.writing_style,
+        title=spec["title"],
+        date=spec["date"],
+        facts=facts,
+        phrases=phrases,
     )
     return llm_client.complete(prompt).strip()
 

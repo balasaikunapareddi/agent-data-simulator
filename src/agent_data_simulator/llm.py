@@ -31,6 +31,8 @@ import os
 import re
 from dataclasses import dataclass, field
 
+from .prompts import ACTION_PROTOCOL, INVALID_JSON_RETRY
+
 
 @dataclass
 class AgentContext:
@@ -365,7 +367,7 @@ class GeminiLLM:
             parsed = _parse_action_json(raw)
             if parsed is not None:
                 return parsed
-            prompt += "\n\nYour previous reply was not valid JSON. Reply with ONE JSON object only."
+            prompt += INVALID_JSON_RETRY
         return {"action": "abstain", "reason": "model did not return a valid action"}
 
     def _render_prompt(self, ctx: AgentContext) -> str:
@@ -385,14 +387,7 @@ class GeminiLLM:
             f"Available tools:\n{tools}\n\n"
             f"Question: {ctx.question}\n\n"
             f"Observations so far:\n{observations}\n\n"
-            "Reply with exactly ONE JSON object for your next step, one of:\n"
-            '{"action": "list_tables"}\n'
-            '{"action": "describe_table", "table": "<name>"}\n'
-            '{"action": "search_documents", "query": "<keywords>"}\n'
-            '{"action": "run_sql", "sql": "<single SELECT>"}\n'
-            '{"action": "answer", "text": "<final answer>"}\n'
-            '{"action": "abstain", "reason": "<why you cannot answer>"}\n'
-            "No other text."
+            + ACTION_PROTOCOL
         )
 
 
